@@ -40,13 +40,15 @@
                     <TextBlock Grid.Row="0" Text="Pages" Style="{StaticResource SubtitleTextBlockStyle}"
                                Margin="16,12" FontWeight="SemiBold"/>
 
-                    <ListView x:Name="PageThumbnails" Grid.Row="1" Padding="8">
+                    <ListView x:Name="PageThumbnails" Grid.Row="1" Padding="8"
+                              ItemsSource="{x:Bind _viewModel.Pages, Mode=OneWay}"
+                              SelectionChanged="PageThumbnails_SelectionChanged">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1" CornerRadius="4" Padding="4" Margin="4">
                                     <Grid Width="120" Height="160">
-                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                                        <Image Source="{Binding ThumbnailImage}" Stretch="Uniform"/>
                                         <TextBlock Text="{Binding PageNumber}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Bottom"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
@@ -70,13 +72,13 @@
                 <!-- Toolbar -->
                 <CommandBar Grid.Row="0" Background="Transparent" IsOpen="False" DefaultLabelPosition="Right">
                     <AppBarButton Icon="OpenFile" Label="Open" Click="OpenFile_Click"/>
-                    <AppBarButton Icon="Save" Label="Save"/>
+                    <AppBarButton Icon="Save" Label="Save" Click="SaveFile_Click"/>
                     <AppBarSeparator/>
-                    <AppBarButton Icon="ZoomIn" Label="Zoom In"/>
-                    <AppBarButton Icon="ZoomOut" Label="Zoom Out"/>
+                    <AppBarButton Icon="ZoomIn" Label="Zoom In" Command="{x:Bind _viewModel.ZoomInCommand}"/>
+                    <AppBarButton Icon="ZoomOut" Label="Zoom Out" Command="{x:Bind _viewModel.ZoomOutCommand}"/>
                     <AppBarSeparator/>
-                    <AppBarButton Icon="Previous" Label="Previous"/>
-                    <AppBarButton Icon="Next" Label="Next"/>
+                    <AppBarButton Icon="Previous" Label="Previous" Command="{x:Bind _viewModel.PreviousPageCommand}"/>
+                    <AppBarButton Icon="Next" Label="Next" Command="{x:Bind _viewModel.NextPageCommand}"/>
                     <CommandBar.SecondaryCommands>
                         <AppBarButton Icon="Setting" Label="Settings"/>
                         <AppBarButton Icon="Help" Label="Help"/>
@@ -88,25 +90,31 @@
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto"
                               ZoomMode="Enabled"
-                              Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                              IsTabStop="True"
+                              Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                              KeyDown="DocumentCanvas_KeyDown">
                     <Grid x:Name="DocumentCanvas"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           Padding="40">
-                        <!-- PDF pages will be rendered here -->
+                        <!-- PDF page rendered here -->
                         <Border Background="White"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="2"
-                                Width="612" Height="792"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
-                            <TextBlock Text="Open a PDF file to begin"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Style="{StaticResource SubtitleTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Image x:Name="PageImage"
+                                   Source="{x:Bind _viewModel.CurrentPageImage, Mode=OneWay}"
+                                   Stretch="Uniform"/>
                         </Border>
+                        <!-- Fallback text when no document is loaded -->
+                        <TextBlock Text="Open a PDF file to begin"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   IsHitTestVisible="False"/>
                     </Grid>
                 </ScrollViewer>
 

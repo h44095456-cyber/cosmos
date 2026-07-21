@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using SkiaSharp;
@@ -9,8 +11,48 @@ public class PdfiumRenderer : IPdfRenderer, IDisposable
 {
     private IntPtr _document = IntPtr.Zero;
     private bool _disposed = false;
+    private static readonly object _initLock = new object();
+    private static bool _initialized = false;
 
     public int PageCount { get; private set; }
+
+    static PdfiumRenderer()
+    {
+        // Register a resolver so pdfium.dll is found whether it was copied to the
+        // output root (self-contained publish) or lives in runtimes/<rid>/native/.
+        NativeLibrary.SetDllImportResolver(typeof(PdfiumRenderer).Assembly, ResolvePdfium);
+    }
+
+    private static IntPtr ResolvePdfium(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName == "pdfium.dll")
+        {
+            if (NativeLibrary.TryLoad("pdfium.dll", assembly, searchPath, out IntPtr handle))
+                return handle;
+
+            var arch = RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "x64",
+                Architecture.X86 => "x86",
+                Architecture.Arm64 => "arm64",
+                _ => "x64"
+            };
+
+            string[] candidates =
+            {
+                Path.Combine(AppContext.BaseDirectory, "runtimes", $"win-{arch}", "native", "pdfium.dll"),
+                Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native", "pdfium.dll"),
+                Path.Combine(AppContext.BaseDirectory, "pdfium.dll"),
+            };
+
+            foreach (var path in candidates)
+            {
+                if (NativeLibrary.TryLoad(path, out handle))
+                    return handle;
+            }
+        }
+        return IntPtr.Zero;
+    }
 
     [DllImport("pdfium.dll", CallingConvention = CallingConvention.Cdecl)]
     private static extern void FPDF_InitLibrary();
@@ -60,9 +102,6 @@ public class PdfiumRenderer : IPdfRenderer, IDisposable
     private const int FPDF_BITMAP_BGRA = 4;
     private const int FPDF_ANNOT = 0x01;
     private const int FPDF_LCD_TEXT = 0x02;
-
-    private static bool _initialized = false;
-    private static readonly object _initLock = new object();
 
     public PdfiumRenderer()
     {

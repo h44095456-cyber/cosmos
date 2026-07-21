@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Cosmos.Rendering;
+using Microsoft.UI.Xaml.Media.Imaging;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading.Tasks;
+using Windows.Storage.Streams;
 
 namespace Cosmos.App.ViewModels;
 
@@ -22,6 +25,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string? _documentPath;
 
+    [ObservableProperty]
+    private BitmapImage? _currentPageImage;
+
     public ObservableCollection<PageThumbnail> Pages { get; } = new();
 
     public MainViewModel(IPdfRenderer renderer)
@@ -39,6 +45,7 @@ public partial class MainViewModel : ObservableObject
         CurrentPage = 1;
 
         await GenerateThumbnailsAsync();
+        await RenderCurrentPageAsync();
     }
 
     private async Task GenerateThumbnailsAsync()
@@ -47,13 +54,49 @@ public partial class MainViewModel : ObservableObject
 
         for (int i = 0; i < TotalPages; i++)
         {
-            var thumbnail = await _renderer.RenderPageAsync(i, 0.2f);
+            var thumbnailData = await _renderer.RenderPageAsync(i, 0.2f);
+            BitmapImage? bitmap = null;
+
+            if (thumbnailData != null)
+            {
+                bitmap = new BitmapImage();
+                using var stream = new MemoryStream(thumbnailData);
+                await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+            }
+
             Pages.Add(new PageThumbnail
             {
                 PageNumber = i + 1,
-                Thumbnail = thumbnail
+                ThumbnailImage = bitmap
             });
         }
+    }
+
+    private async Task RenderCurrentPageAsync()
+    {
+        if (CurrentPage < 1 || CurrentPage > TotalPages)
+            return;
+
+        float scale = ZoomLevel / 100.0f;
+        var pageData = await _renderer.RenderPageAsync(CurrentPage - 1, scale);
+
+        if (pageData != null)
+        {
+            var bitmap = new BitmapImage();
+            using var stream = new MemoryStream(pageData);
+            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+            CurrentPageImage = bitmap;
+        }
+    }
+
+    partial void OnCurrentPageChanged(int value)
+    {
+        _ = RenderCurrentPageAsync();
+    }
+
+    partial void OnZoomLevelChanged(int value)
+    {
+        _ = RenderCurrentPageAsync();
     }
 
     [RelayCommand]
@@ -91,10 +134,19 @@ public partial class MainViewModel : ObservableObject
             ZoomLevel -= 25;
         }
     }
+
+    [RelayCommand]
+    public void GoToPage(int pageNumber)
+    {
+        if (pageNumber >= 1 && pageNumber <= TotalPages)
+        {
+            CurrentPage = pageNumber;
+        }
+    }
 }
 
 public class PageThumbnail
 {
     public int PageNumber { get; set; }
-    public byte[]? Thumbnail { get; set; }
+    public BitmapImage? ThumbnailImage { get; set; }
 }
