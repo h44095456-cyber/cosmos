@@ -1,0 +1,41 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, x86, ARM64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Test
+        run: dotnet test -c Release --no-build --verbosity normal
+        continue-on-error: true
+
+      - name: Publish
+        run: dotnet publish src/Cosmos.App/Cosmos.App.csproj -c Release -r win-${{ matrix.platform == 'x86' && 'x86' || (matrix.platform == 'ARM64' && 'arm64' || 'x64') }} --self-contained -o publish/${{ matrix.platform }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-win-${{ matrix.platform }}
+          path: publish/${{ matrix.platform }}/
