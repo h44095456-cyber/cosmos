@@ -14,7 +14,6 @@
   <ItemGroup>
     <PackageReference Include="bblanchon.PDFium.Win32" Version="152.0.7961" />
     <PackageReference Include="SkiaSharp" Version="2.88.7" />
-    <PackageReference Include="SkiaSharp.Views.WinUI" Version="2.88.7" />
   </ItemGroup>
 
   <ItemGroup>
